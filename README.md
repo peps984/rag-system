@@ -4,8 +4,8 @@ A Retrieval-Augmented Generation (RAG) system built with FastAPI, LangChain, and
 
 ## 🗺️ Roadmap
 
-- [ ] Basic project structure
-- [ ] FastAPI setup
+- [x] Basic project structure
+- [x] Basic FastAPI setup
 - [ ] Docker configuration
 
 ## 📝 License
