@@ -1,0 +1,34 @@
+services:
+
+  db:
+    image: postgres
+    container_name: rag-db
+    restart: always
+    shm_size: 128mb
+    environment:
+      POSTGRES_USER: raguser
+      POSTGRES_PASSWORD: ragpass
+      POSTGRES_DB: ragdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d ragdb -U raguser"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    container_name: rag-api
+    environment:
+      DATABASE_URL: postgresql://raguser:ragpass@db:5432/ragdb
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
