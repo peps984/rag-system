@@ -8,7 +8,8 @@ A Retrieval-Augmented Generation (RAG) system built with FastAPI, LangChain, and
 - [x] Basic FastAPI setup
 - [x] First Docker configuration
 - [x] Docker Compose + PostgreSQL configuragion
-- [ ] First CRUD endpoint
+- [x] First CRUD endpoints
+- [ ] ...
 
 ## 📝 License
 
