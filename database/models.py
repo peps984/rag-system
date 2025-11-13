@@ -9,3 +9,14 @@ class Note(Base):
     title = Column(String, nullable=False)
     content = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.now)
+
+class Document(Base):
+    __tablename__ = "documents"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    filename = Column(String, nullable=False)
+    original_filename = Column(String, nullable=False) #to show it to the user
+    file_path = Column(String, nullable=False)
+    file_size = Column(Integer, nullable=False)
+    file_type = Column(String, nullable=False)
+    uploaded_at = Column(DateTime, default=datetime.now)
