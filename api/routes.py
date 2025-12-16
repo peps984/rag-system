@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
-from database.database import get_db
-from database.models import Note, Document
-from api.schemas import NoteCreate, NoteResponse, NoteUpdate, DocumentResponse
 from typing import List
-from config.settings import UPLOAD_DIR, MAX_FILE_SIZE_MB, ALLOWED_EXTENSIONS
 import uuid
 from pathlib import Path
+from database.database import get_db
+from database.models import Note, Document
+from api.schemas import NoteCreate, NoteResponse, NoteUpdate, DocumentResponse, DocumentWithContent
+from config.settings import UPLOAD_DIR, MAX_FILE_SIZE_MB, ALLOWED_EXTENSIONS
+from processing.text_extractor import text_extractor
 
 router = APIRouter()
 
@@ -108,8 +109,8 @@ async def upload_document(file: UploadFile = File(...), db: Session = Depends(ge
             )
     
     # file content
-    content = await file.read()
-    file_size = len(content)
+    file_content = await file.read()
+    file_size = len(file_content)
     
     # size validation
     max_size_bytes = MAX_FILE_SIZE_MB * 1024 * 1024
@@ -125,7 +126,16 @@ async def upload_document(file: UploadFile = File(...), db: Session = Depends(ge
     
     # save file
     with open(file_path, "wb") as f:
-        f.write(content)
+        f.write(file_content)
+    
+    # extract text
+    try:
+        extracted_text = text_extractor(file_path)
+        content_length = len(extracted_text)
+    except Exception as e:
+        print(f"Warning: Could not extract text: {e}")
+        extracted_text = None
+        content_length = 0
     
     # write document metadata on db
     db_document = Document(
@@ -133,7 +143,9 @@ async def upload_document(file: UploadFile = File(...), db: Session = Depends(ge
         original_filename=file.filename,
         file_path=str(file_path),
         file_size=file_size,
-        file_type=file_extension
+        file_type=file_extension,
+        content=extracted_text,
+        content_length=content_length
     )
     
     db.add(db_document)
@@ -149,6 +161,18 @@ def get_documents(db: Session = Depends(get_db)):
     """
     documents = db.query(Document).all()
     return documents
+
+@router.get("/documents/{document_id}", response_model=DocumentWithContent)
+def get_document(document_id: int, db: Session = Depends(get_db)):
+    """
+    Get a single document by ID
+    """
+    document = db.query(Document).filter(Document.id == document_id).first()
+    
+    if document is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    return document
 
 @router.delete("/documents/{document_id}")
 def delete_document(document_id: int, db: Session = Depends(get_db)):
@@ -168,3 +192,14 @@ def delete_document(document_id: int, db: Session = Depends(get_db)):
     db.commit()
     
     return {"message": "Document deleted successfully"}
+
+@router.get("/documents/search/{query}")
+def search_documents(query: str, db: Session = Depends(get_db)):
+    """
+    Search for documents that contain query
+    """
+    documents = db.query(Document).filter(
+        Document.content.ilike(f"%{query}%")
+    ).all()
+    
+    return documents

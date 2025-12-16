@@ -28,6 +28,10 @@ class DocumentResponse(BaseModel):
     file_size: int
     file_type: str
     uploaded_at: datetime
+    content_length: int | None = None
     
     class Config:
         from_attributes = True
+
+class DocumentWithContent(DocumentResponse):
+    content: str | None = None

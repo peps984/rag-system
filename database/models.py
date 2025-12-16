@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, Text
 from datetime import datetime
 from database.database import Base
 
@@ -20,3 +20,5 @@ class Document(Base):
     file_size = Column(Integer, nullable=False)
     file_type = Column(String, nullable=False)
     uploaded_at = Column(DateTime, default=datetime.now)
+    content = Column(Text, nullable=True)
+    content_length = Column(Integer, nullable=True)
