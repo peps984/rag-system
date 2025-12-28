@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text
+from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey
+from sqlalchemy.orm import relationship
 from datetime import datetime
 from database.database import Base
 
@@ -22,3 +23,15 @@ class Document(Base):
     uploaded_at = Column(DateTime, default=datetime.now)
     content = Column(Text, nullable=True)
     content_length = Column(Integer, nullable=True)
+    chunks = relationship("DocumentChunk", back_populates="document", cascade="all, delete-orphan")
+
+class DocumentChunk(Base):
+    __tablename__ = "document_chunks"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    document_id = Column(Integer, ForeignKey("documents.id", ondelete="CASCADE"))
+    chunk_index = Column(Integer, nullable=False)
+    content = Column(Text, nullable=False)
+    char_count = Column(Integer, nullable=False)
+    created_at = Column(DateTime, default=datetime.now)
+    document = relationship("Document", back_populates="chunks")

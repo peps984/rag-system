@@ -4,10 +4,11 @@ from typing import List
 import uuid
 from pathlib import Path
 from database.database import get_db
-from database.models import Note, Document
-from api.schemas import NoteCreate, NoteResponse, NoteUpdate, DocumentResponse, DocumentWithContent
-from config.settings import UPLOAD_DIR, MAX_FILE_SIZE_MB, ALLOWED_EXTENSIONS
+from database.models import Note, Document, DocumentChunk
+from api.schemas import NoteCreate, NoteResponse, NoteUpdate, DocumentResponse, DocumentWithContent, DocumentWithChunks
+from config.settings import UPLOAD_DIR, MAX_FILE_SIZE_MB, ALLOWED_EXTENSIONS, CHUNK_SIZE, CHUNK_OVERLAP
 from processing.text_extractor import text_extractor
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 router = APIRouter()
 
@@ -97,7 +98,7 @@ def update_note(note_id: int, note_update: NoteUpdate, db: Session = Depends(get
 @router.post("/documents/upload", response_model=DocumentResponse)
 async def upload_document(file: UploadFile = File(...), db: Session = Depends(get_db)):
     """
-    Upload a document
+    Upload a document and split it in chunks
     """
     
     # extension validation
@@ -152,6 +153,21 @@ async def upload_document(file: UploadFile = File(...), db: Session = Depends(ge
     db.commit()
     db.refresh(db_document)
     
+    if extracted_text:
+        chunker = RecursiveCharacterTextSplitter(chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP)
+        chunks = chunker.split_text(extracted_text)
+        
+        for idx, chunk_data in enumerate(chunks):
+            db_chunk = DocumentChunk(
+                document_id=db_document.id,
+                chunk_index=idx,
+                content=chunk_data,
+                char_count=len(chunk_data)
+            )
+            db.add(db_chunk)
+        
+        db.commit()
+            
     return db_document
 
 @router.get("/documents", response_model=List[DocumentResponse])
@@ -203,3 +219,15 @@ def search_documents(query: str, db: Session = Depends(get_db)):
     ).all()
     
     return documents
+
+@router.get("/documents/{document_id}/chunks", response_model=DocumentWithChunks)
+def get_document_with_chunks(document_id: int, db: Session = Depends(get_db)):
+    """
+    Get a document with all the chunks
+    """
+    document = db.query(Document).filter(Document.id == document_id).first()
+    
+    if document is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    return document

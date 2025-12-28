@@ -35,3 +35,14 @@ class DocumentResponse(BaseModel):
 
 class DocumentWithContent(DocumentResponse):
     content: str | None = None
+
+class ChunkResponse(BaseModel):
+    id: int
+    chunk_index: int
+    content: str
+    char_count: int
+    
+    class Config:
+        from_attributes = True
+class DocumentWithChunks(DocumentResponse):
+    chunks: list[ChunkResponse] = []
