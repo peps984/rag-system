@@ -8,6 +8,7 @@ from database.models import Note, Document, DocumentChunk
 from api.schemas import NoteCreate, NoteResponse, NoteUpdate, DocumentResponse, DocumentWithContent, DocumentWithChunks
 from config.settings import UPLOAD_DIR, MAX_FILE_SIZE_MB, ALLOWED_EXTENSIONS, CHUNK_SIZE, CHUNK_OVERLAP
 from processing.text_extractor import text_extractor
+from processing.embedding_generator import EmbeddingGenerator
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 router = APIRouter()
@@ -96,9 +97,13 @@ def update_note(note_id: int, note_update: NoteUpdate, db: Session = Depends(get
     return note
 
 @router.post("/documents/upload", response_model=DocumentResponse)
-async def upload_document(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_document(
+    file: UploadFile = File(...),
+    generate_embeddings: bool = True,
+    db: Session = Depends(get_db)
+):
     """
-    Upload a document and split it in chunks
+    Upload a document, split it in chunks and generate embeddings
     """
     
     # extension validation
@@ -134,7 +139,7 @@ async def upload_document(file: UploadFile = File(...), db: Session = Depends(ge
         extracted_text = text_extractor(file_path)
         content_length = len(extracted_text)
     except Exception as e:
-        print(f"Warning: Could not extract text: {e}")
+        print(f"Warning: could not extract text: {e}")
         extracted_text = None
         content_length = 0
     
@@ -167,6 +172,24 @@ async def upload_document(file: UploadFile = File(...), db: Session = Depends(ge
             db.add(db_chunk)
         
         db.commit()
+    
+    if (generate_embeddings and extracted_text):
+        try:
+            generator = EmbeddingGenerator()
+            
+            chunks = db.query(DocumentChunk).filter(DocumentChunk.document_id == db_document.id).all()
+            texts = [chunk.content for chunk in chunks]
+            embeddings = generator.generate_embeddings_batch(texts)
+            
+            for chunk, embedding in zip(chunks, embeddings):
+                chunk.embedding = embedding
+            
+            db.commit()
+            
+            print(f"generated embeddings for {len(chunks)} chunks")
+        
+        except Exception as e:
+            print(f"warning: could not generate embeddings: {e}")
             
     return db_document
 
@@ -231,3 +254,37 @@ def get_document_with_chunks(document_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Document not found")
     
     return document
+
+@router.post("/documents/{document_id}/generate-embeddings")
+def generate_embeddings_for_document(document_id: int, db: Session = Depends(get_db)):
+    """
+    Generate embeddings of all the chunks of a document
+    """
+    # Check if document exists
+    document = db.query(Document).filter(Document.id == document_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    # Get chunks
+    chunks = db.query(DocumentChunk).filter(DocumentChunk.document_id == document_id).all()
+    
+    if not chunks:
+        raise HTTPException(status_code=404, detail="No chunks found")
+    
+    # Generate embeddings
+    generator = EmbeddingGenerator()
+    
+    texts = [chunk.content for chunk in chunks]
+    embeddings = generator.generate_embeddings_batch(texts)
+    
+    # Save embeddings
+    for chunk, embedding in zip(chunks, embeddings):
+        chunk.embedding = embedding
+    
+    db.commit()
+    
+    return {
+        "document_id": document_id,
+        "chunks_processed": len(chunks),
+        "message": "Embeddings generated successfully"
+    }

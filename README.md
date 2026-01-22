@@ -12,8 +12,10 @@ A Retrieval-Augmented Generation (RAG) system built with FastAPI, LangChain, and
 - [x] Basic document upload
 - [x] Text extraction
 - [x] Text chunking
-- [ ] Embeddings generation
-- [ ] pgvector configuration
+- [x] Embeddings generation
+- [x] Pgvector configuration
+- [ ] Cosine similarity
+- [ ] RAG
 
 ## 📝 License
 

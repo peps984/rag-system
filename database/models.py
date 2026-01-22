@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey
 from sqlalchemy.orm import relationship
+from pgvector.sqlalchemy import Vector
 from datetime import datetime
 from database.database import Base
 
@@ -35,3 +36,4 @@ class DocumentChunk(Base):
     char_count = Column(Integer, nullable=False)
     created_at = Column(DateTime, default=datetime.now)
     document = relationship("Document", back_populates="chunks")
+    embedding = Column(Vector(1536), nullable=True)
