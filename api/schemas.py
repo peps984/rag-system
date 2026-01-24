@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
+from typing import List
 
 # schema for note creation
 class NoteCreate(BaseModel):
@@ -46,3 +47,16 @@ class ChunkResponse(BaseModel):
         from_attributes = True
 class DocumentWithChunks(DocumentResponse):
     chunks: list[ChunkResponse] = []
+
+class SearchResult(BaseModel):
+    chunk_id: int
+    document_id: int
+    chunk_index: int
+    content: str
+    char_count: int
+    similarity: float
+
+class SearchResponse(BaseModel):
+    query: str
+    results: List[SearchResult]
+    total_results: int

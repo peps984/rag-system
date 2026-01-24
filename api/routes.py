@@ -5,10 +5,11 @@ import uuid
 from pathlib import Path
 from database.database import get_db
 from database.models import Note, Document, DocumentChunk
-from api.schemas import NoteCreate, NoteResponse, NoteUpdate, DocumentResponse, DocumentWithContent, DocumentWithChunks
+from api.schemas import NoteCreate, NoteResponse, NoteUpdate, DocumentResponse, DocumentWithContent, DocumentWithChunks, SearchResponse, SearchResult
 from config.settings import UPLOAD_DIR, MAX_FILE_SIZE_MB, ALLOWED_EXTENSIONS, CHUNK_SIZE, CHUNK_OVERLAP
 from processing.text_extractor import text_extractor
 from processing.embedding_generator import EmbeddingGenerator
+from processing.similarity_search import SimilaritySearch
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 router = APIRouter()
@@ -287,4 +288,31 @@ def generate_embeddings_for_document(document_id: int, db: Session = Depends(get
         "document_id": document_id,
         "chunks_processed": len(chunks),
         "message": "Embeddings generated successfully"
+    }
+
+
+@router.post("/search", response_model=SearchResponse)
+def search_documents(
+    query: str,
+    top_k: int = 5,
+    document_id: int = None,
+    min_similarity: float = 0.3,
+    db: Session = Depends(get_db)
+):
+    """
+    Search for chunks related to query
+    """
+    if not query or len(query.strip()) == 0:
+        raise HTTPException(status_code=400, detail="Query cannot be empty")
+    
+    searcher = SimilaritySearch(db)
+    results = searcher.search(query=query, top_k=top_k, document_id=document_id)
+    
+    # show results only if above a similarity threshold
+    results = [r for r in results if r["similarity"] >= min_similarity]
+    
+    return {
+        "query": query,
+        "results": results,
+        "total_results": len(results)
     }
