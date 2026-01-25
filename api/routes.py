@@ -5,11 +5,12 @@ import uuid
 from pathlib import Path
 from database.database import get_db
 from database.models import Note, Document, DocumentChunk
-from api.schemas import NoteCreate, NoteResponse, NoteUpdate, DocumentResponse, DocumentWithContent, DocumentWithChunks, SearchResponse, SearchResult
+from api.schemas import NoteCreate, NoteResponse, NoteUpdate, DocumentResponse, DocumentWithContent, DocumentWithChunks, SearchResponse, SearchResult, RAGResponse
 from config.settings import UPLOAD_DIR, MAX_FILE_SIZE_MB, ALLOWED_EXTENSIONS, CHUNK_SIZE, CHUNK_OVERLAP
 from processing.text_extractor import text_extractor
 from processing.embedding_generator import EmbeddingGenerator
 from processing.similarity_search import SimilaritySearch
+from processing.rag_service import RAGService
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 router = APIRouter()
@@ -316,3 +317,27 @@ def search_documents(
         "results": results,
         "total_results": len(results)
     }
+
+@router.post("/query", response_model=RAGResponse)
+def rag_query(
+    question: str,
+    top_k: int = 5,
+    document_id: int = None,
+    model: str = "gpt-4o-mini",
+    db: Session = Depends(get_db)
+):
+    """
+    Execute the RAG query
+    """
+    if not question or len(question.strip()) == 0:
+        raise HTTPException(status_code=400, detail="Question cannot be empty")
+    
+    rag_service = RAGService(db)
+    result = rag_service.query(
+        question=question,
+        top_k=top_k,
+        document_id=document_id,
+        model=model
+    )
+    
+    return result

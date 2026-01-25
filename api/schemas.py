@@ -60,3 +60,15 @@ class SearchResponse(BaseModel):
     query: str
     results: List[SearchResult]
     total_results: int
+
+class SourceReference(BaseModel):
+    document_id: int
+    chunk_index: int
+    content: str
+    similarity: float
+
+class RAGResponse(BaseModel):
+    query: str
+    answer: str
+    sources: List[SourceReference]
+    model_used: str = "gpt-4o-mini"
