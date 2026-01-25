@@ -3,7 +3,6 @@ from contextlib import asynccontextmanager
 from api.routes import router
 from config.settings import APP_NAME, APP_VERSION
 from database.database import engine, Base
-from database.models import Note
 from sqlalchemy import text
 
 with engine.connect() as conn:
