@@ -4,9 +4,9 @@ from typing import List
 import uuid
 from pathlib import Path
 from database.database import get_db
-from database.models import Note, Document, DocumentChunk
-from api.schemas import NoteCreate, NoteResponse, NoteUpdate, DocumentResponse, DocumentWithContent, DocumentWithChunks, SearchResponse, SearchResult, RAGResponse
-from config.settings import UPLOAD_DIR, MAX_FILE_SIZE_MB, ALLOWED_EXTENSIONS, CHUNK_SIZE, CHUNK_OVERLAP
+from database.models import Document, DocumentChunk
+from api.schemas import DocumentResponse, DocumentWithContent, DocumentWithChunks, SearchResponse, SearchResult, RAGResponse
+from config.settings import APP_NAME, APP_VERSION, UPLOAD_DIR, MAX_FILE_SIZE_MB, ALLOWED_EXTENSIONS, CHUNK_SIZE, CHUNK_OVERLAP
 from processing.text_extractor import text_extractor
 from processing.embedding_generator import EmbeddingGenerator
 from processing.similarity_search import SimilaritySearch
@@ -16,87 +16,34 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 router = APIRouter()
 
 @router.get("/")
-async def root():
-    return {"message": "Hello World"}
+def root():
+    """
+    Root endpoint - API information and navigation
+    """
+    return {
+        "message": "Welcome to RAG Production System API",
+        "version": APP_VERSION,
+        "status": "operational",
+        "documentation": {
+            "interactive": "/docs",
+            "alternative": "/redoc"
+        },
+        "endpoints": {
+            "health": "/health",
+            "upload": "/documents/upload",
+            "search": "/search",
+            "query": "/query"
+        },
+        "repository": "https://github.com/peps984/rag-system"
+    }
 
 @router.get("/about")
 async def about():
-    from config.settings import APP_NAME, APP_VERSION
     return {"name": APP_NAME, "version": APP_VERSION}
 
-@router.post("/notes", response_model=NoteResponse)
-def create_note(note: NoteCreate, db: Session = Depends(get_db)):
-    """
-    create a new note
-    """
-    db_note = Note(
-        title=note.title,
-        content=note.content
-    )
-    
-    db.add(db_note)
-    
-    db.commit()
-    
-    db.refresh(db_note)
-    
-    return db_note
-
-@router.get("/notes", response_model=List[NoteResponse])
-def get_notes(db: Session = Depends(get_db)):
-    """
-    Get all the notes
-    """
-    notes = db.query(Note).all()
-    return notes
-
-@router.get("/notes/{note_id}", response_model=NoteResponse)
-def get_note(note_id: int, db: Session = Depends(get_db)):
-    """
-    Get a single note by ID
-    """
-    note = db.query(Note).filter(Note.id == note_id).first()
-    
-    if note is None:
-        raise HTTPException(status_code=404, detail="Note not found")
-    
-    return note
-
-@router.delete("/notes/{note_id}")
-def delete_note(note_id: int, db: Session = Depends(get_db)):
-    """
-    Delete a note
-    """
-    note = db.query(Note).filter(Note.id == note_id).first()
-    
-    if note is None:
-        raise HTTPException(status_code=404, detail="Note not found")
-    
-    db.delete(note)
-    db.commit()
-    
-    return {"message": "Note deleted successfully"}
-
-@router.put("/notes/{note_id}", response_model=NoteResponse)
-def update_note(note_id: int, note_update: NoteUpdate, db: Session = Depends(get_db)):
-    """
-    Update a note
-    """
-    note = db.query(Note).filter(Note.id == note_id).first()
-    
-    if note is None:
-        raise HTTPException(status_code=404, detail="Note not found")
-    
-    if note_update.title is not None:
-        note.title = note_update.title
-    
-    if note_update.content is not None:
-        note.content = note_update.content
-    
-    db.commit()
-    db.refresh(note)
-    
-    return note
+@router.get("/health")
+def health_check():
+    return {"status": "healthy"}
 
 @router.post("/documents/upload", response_model=DocumentResponse)
 async def upload_document(
